@@ -1,77 +1,93 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-ACTION="${1:-help}"
-FILE="${2:-}"
-DB_PATH="/home/node/.n8n/database.sqlite"
+CONTAINER_NAME="${1:-narasim-n8n-1}"
+ACTION="${2:-help}"
+FILE="${3:-}"
+
+DB_CONTAINER="narasim-supabase-1"
+DB_NAME="n8n"
+DB_USER="postgres"
+
+delete_workflow_by_id() {
+  local ID="$1"
+  echo "Deleting workflow ID: $ID from database..."
+  docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -c "DELETE FROM workflow_entity WHERE id = '$ID';" 2>/dev/null || true
+}
 
 case "$ACTION" in
   import)
     if [ -z "$FILE" ]; then
-      echo "Usage: workflow-sync.sh import <file.json>"
+      echo "Usage: $0 $CONTAINER_NAME import <file.json>"
       exit 1
     fi
     
-    WORKFLOW_NAME=$(cat /data/workflows/$FILE | jq -r '.name')
+    WORKFLOW_NAME=$(docker exec -u node "$CONTAINER_NAME" sh -c "cat /workflows/$FILE | jq -r '.name'")
     echo "Workflow name: $WORKFLOW_NAME"
     
-    EXPORT_OUTPUT=$(n8n export:workflow --all 2>&1) || true
-    EXISTING_IDS=$(echo "$EXPORT_OUTPUT" | jq -r '.[] | select(.name == "'"$WORKFLOW_NAME"'" and .isArchived != true) | .id' 2>/dev/null || echo "")
+    EXISTING_IDS=$(docker exec -u node "$CONTAINER_NAME" sh -c "n8n export:workflow --all 2>/dev/null | jq -r '.[] | select(.name == \"'\"$WORKFLOW_NAME\"'\" and .isArchived != true) | .id'")
     
     if [ -n "$EXISTING_IDS" ] && [ "$EXISTING_IDS" != "null" ] && [ "$EXISTING_IDS" != "" ]; then
       for ID in $EXISTING_IDS; do
-        echo "Deleting existing workflow: $ID"
-        sqlite3 "$DB_PATH" "DELETE FROM workflow_entity WHERE id = '$ID';" 2>/dev/null || true
+        echo "Found existing workflow with ID: $ID"
+        delete_workflow_by_id "$ID"
       done
-      echo "Importing new version..."
+      echo "Deleted all duplicates. Importing new version..."
     else
-      echo "Importing..."
+      echo "No existing workflow found. Importing..."
     fi
     
-    n8n import:workflow --input="/data/workflows/$FILE"
-    echo "Done: $FILE"
+    docker exec -u node "$CONTAINER_NAME" n8n import:workflow --input="/workflows/$FILE"
+    echo "Import complete: $FILE"
     ;;
     
   delete)
     if [ -z "$FILE" ]; then
-      echo "Usage: workflow-sync.sh delete <workflow-name>"
+      echo "Usage: $0 $CONTAINER_NAME delete <workflow-name>"
       exit 1
     fi
     
     WORKFLOW_NAME="$FILE"
-    echo "Looking for: $WORKFLOW_NAME"
+    echo "Looking for workflow: $WORKFLOW_NAME"
     
-    EXPORT_OUTPUT=$(n8n export:workflow --all 2>&1) || true
-    EXISTING_IDS=$(echo "$EXPORT_OUTPUT" | jq -r '.[] | select(.name == "'"$WORKFLOW_NAME"'" and .isArchived != true) | .id' 2>/dev/null || echo "")
+    EXISTING_IDS=$(docker exec -u node "$CONTAINER_NAME" sh -c "n8n export:workflow --all 2>/dev/null | jq -r '.[] | select(.name == \"'\"$WORKFLOW_NAME\"'\" and .isArchived != true) | .id'")
     
     if [ -z "$EXISTING_IDS" ] || [ "$EXISTING_IDS" = "null" ]; then
-      echo "Not found: $WORKFLOW_NAME"
+      echo "Workflow not found: $WORKFLOW_NAME"
       exit 1
     fi
     
     for ID in $EXISTING_IDS; do
-      echo "Deleting: $ID"
-      sqlite3 "$DB_PATH" "DELETE FROM workflow_entity WHERE id = '$ID';" 2>/dev/null || true
+      delete_workflow_by_id "$ID"
     done
-    echo "Done"
+    echo "Delete complete"
     ;;
     
   list)
-    n8n list:workflow 2>/dev/null || echo "No workflows"
+    echo "Listing all workflows (excluding archived)..."
+    docker exec -u node "$CONTAINER_NAME" sh -c "n8n export:workflow --all 2>/dev/null | jq -r '.[] | select(.isArchived != true) | \"\(.id)\t\(.name)\"'"
     ;;
     
   export)
-    n8n export:workflow --all --separate --output=/data/workflows/
-    echo "Exported to /data/workflows/"
+    echo "Exporting all workflows..."
+    docker exec -u node "$CONTAINER_NAME" n8n export:workflow --all --separate --output=/workflows/
+    echo "Export complete. Check ./n8n/workflows/ directory."
     ;;
     
   *)
-    echo "Usage: workflow-sync.sh [action] [file/name]"
+    echo "n8n Workflow Sync Tool"
+    echo ""
+    echo "Usage: $0 [container] [action] [file/name]"
     echo ""
     echo "Actions:"
-    echo "  import <file.json>  - Import workflow (replaces existing)"
-    echo "  delete <name>       - Delete workflow by name"
-    echo "  list                - List all workflows"
-    echo "  export              - Export all workflows"
+    echo "  import <file.json>  - Delete existing workflow by name and import new"
+    echo "  delete <name>       - Delete workflow(s) by name"
+    echo "  list                - List all workflows with IDs"
+    echo "  export              - Export all workflows to Git directory"
+    echo ""
+    echo "Examples:"
+    echo "  $0 narasim-n8n-1 import api-me.json"
+    echo "  $0 narasim-n8n-1 delete 'API: Get Current User (me)'"
+    echo "  $0 narasim-n8n-1 list"
     ;;
 esac

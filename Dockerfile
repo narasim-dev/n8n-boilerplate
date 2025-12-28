@@ -3,11 +3,11 @@ ARG N8N_VERSION=2.1.1
 
 FROM node:${NODE_VERSION}-alpine AS base
 
-# Install build dependencies and runtime tools
+ARG N8N_VERSION
+
 RUN apk add --no-cache \
-    sqlite \
+    postgresql-client \
     curl \
-    jq \
     python3 \
     make \
     g++ \
@@ -24,24 +24,28 @@ RUN apk add --no-cache \
     tiff-dev \
     ghostscript-dev
 
+RUN apk add --no-cache \
+    git \
+    jq \
+    rsync \
+    sqlite
+
 WORKDIR /app
 
-# Install n8n globally
 RUN npm install -g n8n@${N8N_VERSION}
 
-# Create node user and set permissions
-RUN adduser -S node -u 1001 || true && \
-    mkdir -p /home/node/.n8n && \
-    chown -R node:node /home/node
+COPY --chown=node:node scripts /app/scripts
+COPY --chown=node:node workflows /app/workflows
+COPY --chown=node:node databases /app/databases
+COPY --chown=node:node tests /app/tests
+COPY --chown=node:node credentials /tmp/credentials
 
-# Install canvas dependencies as root
-USER root
-RUN cd /usr/local/lib/node_modules/n8n/node_modules/pdfjs-dist && \
-    npm install @napi-rs/canvas
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 USER node
 
 EXPOSE 5678
 
-ENTRYPOINT ["n8n", "start"]
-
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["n8n", "start"]

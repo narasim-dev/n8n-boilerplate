@@ -1,3 +1,6 @@
-# Environment
 .env
- 
+/volumes/**/*
+!/volumes/**/
+!/volumes/**/.gitkeep
+/credentials/*
+!/credentials/README.md
