@@ -57,6 +57,10 @@ if [ -n "$N8N_BOOTSTRAP_OWNER_EMAIL" ] && [ -n "$N8N_BOOTSTRAP_OWNER_PASSWORD" ]
     
     log "Resetting owner setup flag..."
     sqlite3 "$DB_FILE" "UPDATE settings SET value = 'false' WHERE key = 'userManagement.isInstanceOwnerSetUp';" 2>/dev/null || true
+
+    # SQLite needs time to commit changes before n8n reads them
+    # Without this delay, owner setup API returns error and all subsequent imports fail
+    sleep 3
     
     log "Setting up owner via API..."
     SETUP_RESPONSE=$(curl -s -X POST http://localhost:5678/rest/owner/setup \
