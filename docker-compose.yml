@@ -8,13 +8,14 @@ services:
       - N8N_PORT=${N8N_PORT:-5678}
       - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
       - N8N_LOG_LEVEL=${N8N_LOG_LEVEL:-info}
       - N8N_METRICS=${N8N_METRICS:-false}
-      - DB_TYPE=${DB_TYPE:-sqlite}
-      - TZ=${TZ:-America/Los_Angeles}
       - N8N_PERSONALIZATION_ENABLED=${N8N_PERSONALIZATION_ENABLED:-false}
       - N8N_BOOTSTRAP_ACTIVATE_WORKFLOWS=${N8N_BOOTSTRAP_ACTIVATE_WORKFLOWS}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      - DB_TYPE=${DB_TYPE:-sqlite}
+      - TZ=${TZ:-America/Los_Angeles}
+      - NODES_EXCLUDE
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./volumes/home/node:/home/node

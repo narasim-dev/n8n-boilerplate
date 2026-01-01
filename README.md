@@ -82,15 +82,6 @@ Place credential JSON files in `credentials/` folder:
 
 Files are copied to `/tmp/credentials` during build, imported via API, then **deleted** for security.
 
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `N8N_ENCRYPTION_KEY` | Encryption key for credentials | Required |
-| `N8N_PERSONALIZATION_ENABLED` | Show personalization survey | `false` |
-| `N8N_BOOTSTRAP_ACTIVATE_WORKFLOWS` | Activate workflows: `true`/`all` or comma-separated names | `true` |
-| `DB_TYPE` | Database type | `sqlite` |
-
 ### Bootstrap credentials (in `credentials/bootstrap.env`)
 
 | Variable | Description |
@@ -99,6 +90,30 @@ Files are copied to `/tmp/credentials` during build, imported via API, then **de
 | `N8N_BOOTSTRAP_OWNER_PASSWORD` | Admin password (must contain number) |
 | `N8N_BOOTSTRAP_OWNER_FIRSTNAME` | Admin first name |
 | `N8N_BOOTSTRAP_OWNER_LASTNAME` | Admin last name |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `N8N_ENCRYPTION_KEY` | Encryption key for credentials | Required |
+| `N8N_PERSONALIZATION_ENABLED` | Show personalization survey | `false` |
+| `N8N_BOOTSTRAP_ACTIVATE_WORKFLOWS` | Activate workflows: `true`/`all` or comma-separated names | `true` |
+| `DB_TYPE` | Database type | `sqlite` |
+| `NODES_EXCLUDE` | Nodes to exclude from UI | Not set (n8n v2 defaults) |
+
+### Enabling Code Execution Nodes
+
+In n8n v2, potentially dangerous nodes are disabled by default:
+- **Code** — execute JavaScript/Python
+- **Execute Command** — run shell commands
+- **SSH** — remote server access
+
+To enable them, add to your `.env` file:
+```
+NODES_EXCLUDE=[]
+```
+
+⚠️ **Security Warning**: Only enable these nodes if you trust all users with access to your n8n instance, as they can execute arbitrary code on the server.
 
 ## Workflow Management
 
